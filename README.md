@@ -10,6 +10,15 @@ Status: **planning**. Nothing under `harnesses/` exists yet.
 | [docs/cursor-techniques.md](docs/cursor-techniques.md) | Dedicated Cursor section: every surface for starting agents (CLI headless, `@cursor/sdk`, Cloud Agents API v1, Automations, Task tool, BDK), isolation and self-hosted pools, policy files and hooks, the Automations event loop and its trigger caveats, spend controls, observability, and what Cursor does not do |
 | [docs/existing-assets.md](docs/existing-assets.md) | Inventory of `jmjava` repos and what each contributes; the gaps the plan fills |
 | [docs/plan.md](docs/plan.md) | Nine demo harnesses (H1–H9), shared library, rules every harness follows, order, non-goals, open questions |
+| [vault/](vault/README.md) | The plan as `obsidian-mcp` task lists: `Agent Queue.md` (61 claimable lines), `Project State.md` (wave 1 in Next Steps), one `TODO/` note per epic. `scripts/seed_vault.py` merges them into your vault |
+
+## Build the demos with the Obsidian MCP
+
+```bash
+python3 scripts/seed_vault.py --vault "$OBSIDIAN_VAULT_PATH"   # merge-safe, idempotent
+```
+
+Then point an agent with the `obsidian-dev-memory` MCP at this repo: `get_project_context("agent-automation")` → `list_open_tasks` → `claim_task` with the full queue line → work the files named in the matching `TODO/` note → `complete_task` only when every PR check is `success`. Details and a prompt skeleton in [vault/README.md](vault/README.md).
 
 ## The nine harnesses in one table
 
