@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PoolReceipt",
+  "description": "Structured output from a pool run, used by evals as a baseline comparison artifact.",
+  "type": "object",
+  "required": ["poolId", "harness", "started", "finished", "cap", "seats", "summary"],
+  "properties": {
+    "poolId": { "type": "string" },
+    "harness": { "type": "string" },
+    "started": { "type": "string", "format": "date-time" },
+    "finished": { "type": "string", "format": "date-time" },
+    "cap": { "type": "integer", "minimum": 1 },
+    "seats": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["task", "agentId", "model", "status", "pr", "checks", "tokens", "trippedLock", "blockedReason"],
+        "properties": {
+          "task": { "type": "string" },
+          "agentId": { "type": "string" },
+          "model": { "type": "string" },
+          "status": { "type": "string", "enum": ["completed", "blocked", "cancelled"] },
+          "pr": { "type": ["string", "null"] },
+          "checks": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": ["success", "failure", "pending"]
+            }
+          },
+          "tokens": { "type": "integer", "minimum": 0 },
+          "trippedLock": { "type": ["string", "null"] },
+          "blockedReason": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["completed", "blocked", "cancelled", "totalTokens"],
+      "properties": {
+        "completed": { "type": "integer", "minimum": 0 },
+        "blocked": { "type": "integer", "minimum": 0 },
+        "cancelled": { "type": "integer", "minimum": 0 },
+        "totalTokens": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

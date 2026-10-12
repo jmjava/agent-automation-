@@ -1,0 +1,52 @@
+[
+  {
+    "id": "FEAT-001",
+    "title": "Add input validation to /api/submit endpoint",
+    "repo": "jmjava/pool-fixture",
+    "ref": "main",
+    "model": "claude-sonnet-4",
+    "files": ["src/routes/submit.ts"],
+    "testGlobs": ["**/*.test.ts"],
+    "verifyCommands": ["npm test", "npm run lint"]
+  },
+  {
+    "id": "FEAT-002",
+    "title": "Implement rate limiter middleware",
+    "repo": "jmjava/pool-fixture",
+    "ref": "main",
+    "model": "claude-sonnet-4",
+    "files": ["src/middleware/rate-limiter.ts"],
+    "testGlobs": ["**/*.test.ts"],
+    "verifyCommands": ["npm test"]
+  },
+  {
+    "id": "BUG-001",
+    "title": "Fix off-by-one in pagination helper",
+    "repo": "jmjava/pool-fixture",
+    "ref": "main",
+    "model": "claude-sonnet-4",
+    "files": ["src/utils/paginate.ts"],
+    "testGlobs": ["**/*.test.ts"],
+    "verifyCommands": ["npm test"]
+  },
+  {
+    "id": "REF-001",
+    "title": "Extract database connection to shared module",
+    "repo": "jmjava/pool-fixture",
+    "ref": "main",
+    "model": "claude-sonnet-4",
+    "files": ["src/db/connection.ts", "src/db/index.ts"],
+    "testGlobs": ["**/*.test.ts"],
+    "verifyCommands": ["npm test", "npm run typecheck"]
+  },
+  {
+    "id": "TEST-001",
+    "title": "Add missing tests for auth module",
+    "repo": "jmjava/pool-fixture",
+    "ref": "main",
+    "model": "claude-sonnet-4",
+    "files": [],
+    "testGlobs": ["**/*.test.ts"],
+    "verifyCommands": ["npm test"]
+  }
+]

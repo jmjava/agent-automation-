@@ -1,0 +1,29 @@
+{
+  "name": "@jmjava/agent-automation",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Demo harnesses for automating pools of coding agents on Cursor",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint harness/ harnesses/",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "picomatch": "^4.0.0",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.0.0"
+  },
+  "dependencies": {
+    "@cursor/sdk": "^1.0.0",
+    "picomatch": "^4.0.0"
+  }
+}
