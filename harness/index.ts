@@ -4,6 +4,7 @@
 
 export { guard, type SpendConfig, type AgentRun, type SpendGuardResult } from "./spend.js";
 export { createBoard, type Board, type TaskItem } from "./board.js";
+export { ScriptedBoard, type BoardCall } from "./board-scripted.js";
 export {
   runVerify,
   errorHash,
