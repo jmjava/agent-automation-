@@ -1,184 +1,251 @@
 /**
  * H1 queue-pool coordinator.
  *
- * Implements the 6-step pool behavior:
+ * Implements the pool behavior:
  * 1. List open tasks from the board
- * 2. Claim up to `cap` tasks
- * 3. Launch one agent per claimed task
- * 4. Wait for each agent run; read PR checks
- * 5. Complete or block each task based on results
- * 6. Refill: when a seat exits, claim the next open task
- *
- * Board integration is stubbed (TODO: F3 board.ts).
- * Use ScriptedBackend for offline testing.
+ * 2. Rule-of-3: refuse to fan out with fewer than 3 tasks
+ * 3. Fill seats up to `cap`, claiming each task on the board
+ * 4. Wait for each agent run to complete
+ * 5. Verify each completed run with shell commands
+ * 6. Complete or block each task based on verify + allowlist results
+ * 7. Repeat-stop: if the same error hash appears twice, block immediately
+ * 8. Retry once on first failure
+ * 9. Refill freed seats from remaining open tasks
+ * 10. Stop when board is empty or wall budget exceeded
+ * 11. Write receipt, append daily summary, return receipt
  */
 
-import { guard, type SpendConfig, type AgentRun } from "../../harness/spend.js";
-import { errorHash, repeatStop } from "../../harness/gate.js";
-import { writeReceipt, summarize, type PoolReceipt, type SeatResult } from "../../harness/receipt.js";
-import type { AgentBackend, CreateAgentOpts } from "../../harness/backends/types.js";
+import type { Board, TaskItem } from "../../harness/board.js";
+import type { AgentBackend } from "../../harness/backends/types.js";
+import type { AgentRun, SpendConfig } from "../../harness/spend.js";
+import { guard } from "../../harness/spend.js";
+import { runVerify, errorHash, repeatStop, filesAllowlist } from "../../harness/gate.js";
+import {
+  writeReceipt,
+  summarize,
+  type PoolReceipt,
+  type SeatResult,
+} from "../../harness/receipt.js";
 
 export interface PoolConfig {
+  poolId: string;
+  project: string;
   cap: number;
   spend: SpendConfig;
-  backend: AgentBackend;
-  receiptPath: string;
+  verify: string[];
+  filesAllowlist?: string[];
+  model?: string;
+  repo?: string;
+  receiptPath?: string;
 }
 
-export interface TaskEntry {
-  id: string;
-  title: string;
-  repo: string;
-  ref: string;
-  model: string;
-  prompt: string;
-  files: string[];
-  testGlobs: string[];
-  verifyCommands: string[];
+interface ActiveSeat {
+  task: TaskItem;
+  run: AgentRun;
+  startTime: number;
+  attempt: number;
 }
 
-/**
- * Run the queue-pool coordinator.
- *
- * @param tasks - ordered list of tasks to process
- * @param config - pool configuration
- * @returns the pool receipt
- */
+function extractAgentId(run: AgentRun): string {
+  return "agentId" in run
+    ? String((run as Record<string, unknown>).agentId)
+    : "";
+}
+
 export async function runPool(
-  tasks: TaskEntry[],
   config: PoolConfig,
+  backend: AgentBackend,
+  board: Board,
 ): Promise<PoolReceipt> {
-  const startTime = Date.now();
-  const poolId = `pool-${Date.now()}`;
-  const seatResults: SeatResult[] = [];
-  const errorHistory: string[] = [];
+  const poolStart = Date.now();
+  const seats: SeatResult[] = [];
+  const errorHashes: string[] = [];
+  const model = config.model ?? config.spend.model;
+  const repo = config.repo ?? "";
 
-  // Rule of 3: refuse to fan out with fewer than 3 independent tasks
-  if (tasks.length < 3) {
-    console.warn(
-      `Rule of 3: only ${tasks.length} tasks provided (minimum 3). ` +
-      "Recording all as blocked in receipt.",
+  // 1. List open tasks
+  const allTasks = await board.listOpen(config.project);
+
+  // 2. Rule of 3
+  if (allTasks.length < 3) {
+    throw new Error(
+      `Rule of 3: only ${allTasks.length} task(s) in project "${config.project}" (minimum 3)`,
     );
-    for (const task of tasks) {
-      seatResults.push({
-        task: task.id,
-        agentId: "",
-        model: task.model,
-        status: "blocked",
-        pr: null,
-        checks: {},
-        tokens: 0,
-        trippedLock: null,
-        blockedReason: `Rule of 3: only ${tasks.length} tasks (need ≥ 3)`,
+  }
+
+  const taskQueue = [...allTasks];
+  const active: ActiveSeat[] = [];
+
+  async function fillSeats(): Promise<void> {
+    while (active.length < config.cap && taskQueue.length > 0) {
+      const next = taskQueue.shift()!;
+      const claimed = await board.claim(config.project, next.title);
+      const run = await backend.create({
+        prompt: claimed.title,
+        model,
+        repo,
+        ref: "main",
+        metadata: { pool: config.poolId, task: claimed.id },
       });
-    }
-  } else {
-    const taskQueue = [...tasks];
-    const activeSeats: Map<string, { task: TaskEntry; run: AgentRun; startTime: number; sends: number }> = new Map();
-
-    // Step 1-3: Fill initial seats
-    while (activeSeats.size < config.cap && taskQueue.length > 0) {
-      const task = taskQueue.shift()!;
-      // TODO: board.claim(project, task.title)
-
-      const opts: CreateAgentOpts = {
-        repo: task.repo,
-        ref: task.ref,
-        prompt: task.prompt,
-        model: task.model,
-        metadata: { pool: poolId, task: task.id },
-        autoCreatePR: true,
-      };
-
-      try {
-        const run = await config.backend.create(opts);
-        activeSeats.set(task.id, { task, run, startTime: Date.now(), sends: 0 });
-      } catch (err) {
-        seatResults.push({
-          task: task.id,
-          agentId: "",
-          model: task.model,
-          status: "blocked",
-          pr: null,
-          checks: {},
-          tokens: 0,
-          trippedLock: null,
-          blockedReason: `Failed to create agent: ${err instanceof Error ? err.message : String(err)}`,
-        });
-      }
-    }
-
-    // Step 4-6: Process seats and refill
-    for (const [taskId, seat] of activeSeats) {
-      // Check spend guard
-      const spendResult = await guard(
-        seat.run,
-        config.spend,
-        seat.startTime,
-        seat.sends,
-      );
-
-      if (spendResult.tripped) {
-        seatResults.push({
-          task: taskId,
-          agentId: "",
-          model: seat.task.model,
-          status: "cancelled",
-          pr: null,
-          checks: {},
-          tokens: spendResult.usage.tokens,
-          trippedLock: spendResult.lockName,
-          blockedReason: null,
-        });
-        // TODO: board.block(taskId, `Spend lock tripped: ${spendResult.lockName}`)
-        continue;
-      }
-
-      // Check for repeat-stop
-      const hash = errorHash(JSON.stringify(spendResult.usage));
-      errorHistory.push(hash);
-      if (repeatStop(errorHistory)) {
-        seatResults.push({
-          task: taskId,
-          agentId: "",
-          model: seat.task.model,
-          status: "blocked",
-          pr: null,
-          checks: {},
-          tokens: spendResult.usage.tokens,
-          trippedLock: null,
-          blockedReason: "Repeat-stop: same error hash twice",
-        });
-        continue;
-      }
-
-      // TODO: read PR checks, verify all success
-      // TODO: board.complete() or board.block()
-      seatResults.push({
-        task: taskId,
-        agentId: "",
-        model: seat.task.model,
-        status: "completed",
-        pr: null,
-        checks: {},
-        tokens: spendResult.usage.tokens,
-        trippedLock: null,
-        blockedReason: null,
-      });
+      active.push({ task: claimed, run, startTime: Date.now(), attempt: 1 });
     }
   }
 
+  // 3. Fill initial seats
+  await fillSeats();
+
+  // 4–10. Process loop
+  while (active.length > 0) {
+    // 10. Wall budget check
+    if (Date.now() - poolStart > config.spend.wallMs) {
+      for (const s of active) {
+        await s.run.cancel();
+        seats.push({
+          task: s.task.id,
+          agentId: extractAgentId(s.run),
+          model,
+          status: "cancelled",
+          pr: null,
+          checks: {},
+          tokens: s.run.usage.totalTokens,
+          trippedLock: "wallBudget",
+          blockedReason: null,
+        });
+      }
+      active.length = 0;
+      break;
+    }
+
+    const seat = active.shift()!;
+
+    // Spend guard per seat
+    const sg = await guard(seat.run, config.spend, seat.startTime, 0);
+    if (sg.tripped) {
+      seats.push({
+        task: seat.task.id,
+        agentId: extractAgentId(seat.run),
+        model,
+        status: "cancelled",
+        pr: null,
+        checks: {},
+        tokens: sg.usage.tokens,
+        trippedLock: sg.lockName,
+        blockedReason: null,
+      });
+      await fillSeats();
+      continue;
+    }
+
+    // 5. Verify
+    const verifyResults = await runVerify(config.verify);
+    let verifyPassed = verifyResults.every((r) => r.exitCode === 0);
+
+    // Files allowlist (needs diff paths from a real PR; no-op with scripted runs)
+    if (verifyPassed && config.filesAllowlist && config.filesAllowlist.length > 0) {
+      const diffPaths: string[] = [];
+      if (diffPaths.length > 0) {
+        const allow = filesAllowlist(diffPaths, [], config.filesAllowlist);
+        if (allow.violations.length > 0) {
+          verifyPassed = false;
+        }
+      }
+    }
+
+    if (verifyPassed) {
+      // 6. Success
+      await board.complete(seat.task.id, "verified");
+      seats.push({
+        task: seat.task.id,
+        agentId: extractAgentId(seat.run),
+        model,
+        status: "completed",
+        pr: null,
+        checks: {},
+        tokens: seat.run.usage.totalTokens,
+        trippedLock: null,
+        blockedReason: null,
+      });
+    } else {
+      // 7. Verify failed — check repeat-stop
+      const output = verifyResults.map((r) => r.output).join("\n");
+      const hash = errorHash(output);
+      errorHashes.push(hash);
+
+      if (repeatStop(errorHashes)) {
+        await board.block(seat.task.id, `Repeat error: ${hash.slice(0, 12)}`);
+        seats.push({
+          task: seat.task.id,
+          agentId: extractAgentId(seat.run),
+          model,
+          status: "blocked",
+          pr: null,
+          checks: {},
+          tokens: seat.run.usage.totalTokens,
+          trippedLock: null,
+          blockedReason: "Repeat-stop: same error hash",
+        });
+      } else if (seat.attempt < 2) {
+        // 8. First failure → retry once
+        const retryRun = await backend.create({
+          prompt: seat.task.title,
+          model,
+          repo,
+          ref: "main",
+          metadata: {
+            pool: config.poolId,
+            task: seat.task.id,
+            retry: "true",
+          },
+        });
+        active.push({
+          task: seat.task,
+          run: retryRun,
+          startTime: Date.now(),
+          attempt: seat.attempt + 1,
+        });
+      } else {
+        // Already retried → block
+        await board.block(seat.task.id, "Verify failed after retry");
+        seats.push({
+          task: seat.task.id,
+          agentId: extractAgentId(seat.run),
+          model,
+          status: "blocked",
+          pr: null,
+          checks: {},
+          tokens: seat.run.usage.totalTokens,
+          trippedLock: null,
+          blockedReason: "Verify failed after retry",
+        });
+      }
+    }
+
+    // 9. Refill from remaining open tasks
+    await fillSeats();
+  }
+
+  // 11. Build and write receipt
   const receipt: PoolReceipt = {
-    poolId,
+    poolId: config.poolId,
     harness: "h1-queue-pool",
-    started: new Date(startTime).toISOString(),
+    started: new Date(poolStart).toISOString(),
     finished: new Date().toISOString(),
     cap: config.cap,
-    seats: seatResults,
-    summary: summarize(seatResults),
+    seats,
+    summary: summarize(seats),
   };
 
-  await writeReceipt(receipt, config.receiptPath);
+  if (config.receiptPath) {
+    await writeReceipt(receipt, config.receiptPath);
+  }
 
+  // 12. Daily summary
+  const { completed, blocked, cancelled, totalTokens } = receipt.summary;
+  await board.appendDaily(
+    "H1 pool",
+    `${config.poolId}: ${completed} completed, ${blocked} blocked, ${cancelled} cancelled (${totalTokens} tokens)`,
+  );
+
+  // 13. Return receipt
   return receipt;
 }

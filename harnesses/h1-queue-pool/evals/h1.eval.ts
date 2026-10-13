@@ -2,24 +2,36 @@
  * H1 queue-pool eval — exercises the coordinator with the ScriptedBackend.
  */
 
-import { describe, it, expect } from "vitest";
-import { runPool, type PoolConfig, type TaskEntry } from "../run.js";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { runPool, type PoolConfig } from "../run.js";
 import { ScriptedBackend, type ScriptedRunConfig } from "../../../harness/backends/scripted.js";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { readFile, rm, mkdir } from "node:fs/promises";
+import { ScriptedBoard } from "../../../harness/board-scripted.js";
+import type { TaskItem } from "../../../harness/board.js";
+import type { VerifyResult } from "../../../harness/gate.js";
 
-function makeTasks(count: number): TaskEntry[] {
+vi.mock("../../../harness/gate.js", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return { ...actual, runVerify: vi.fn() };
+});
+
+vi.mock("../../../harness/receipt.js", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return { ...actual, writeReceipt: vi.fn().mockResolvedValue(undefined) };
+});
+
+import { runVerify } from "../../../harness/gate.js";
+import { writeReceipt } from "../../../harness/receipt.js";
+
+const mockRunVerify = vi.mocked(runVerify);
+const mockWriteReceipt = vi.mocked(writeReceipt);
+
+const PROJECT = "eval-project";
+
+function makeTasks(count: number): TaskItem[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `FEAT-${String(i + 1).padStart(3, "0")}`,
     title: `Task ${i + 1}`,
-    repo: "jmjava/pool-fixture",
-    ref: "main",
-    model: "test-model",
-    prompt: `Do task ${i + 1}`,
-    files: [`src/file${i + 1}.ts`],
-    testGlobs: ["**/*.test.ts"],
-    verifyCommands: ["npm test"],
+    project: PROJECT,
   }));
 }
 
@@ -35,14 +47,11 @@ function makeRunConfigs(count: number): ScriptedRunConfig[] {
   }));
 }
 
-async function makeConfig(
-  backend: ScriptedBackend,
-  dir: string,
-  cap = 7,
-): Promise<PoolConfig> {
-  await mkdir(dir, { recursive: true });
+function makeConfig(overrides?: Partial<PoolConfig>): PoolConfig {
   return {
-    cap,
+    poolId: "eval-pool",
+    project: PROJECT,
+    cap: 7,
     spend: {
       model: "test-model",
       maxSends: 50,
@@ -50,74 +59,89 @@ async function makeConfig(
       maxTotalTokens: 500_000,
       wallMs: 1_200_000,
     },
-    backend,
-    receiptPath: join(dir, "receipt.json"),
+    verify: ["echo ok"],
+    receiptPath: "/tmp/eval-receipt.json",
+    ...overrides,
   };
 }
 
+function verifyPass(): VerifyResult[] {
+  return [{ command: "echo ok", exitCode: 0, output: "ok\n" }];
+}
+
 describe("H1 queue-pool coordinator", () => {
-  it("enforces the Rule of 3: fewer than 3 tasks are blocked", async () => {
-    const dir = join(tmpdir(), `h1-rule3-${Date.now()}`);
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("enforces the Rule of 3: fewer than 3 tasks throw", async () => {
+    const board = new ScriptedBoard(makeTasks(2));
     const backend = new ScriptedBackend([]);
-    const config = await makeConfig(backend, dir, 7);
+    mockRunVerify.mockResolvedValue(verifyPass());
 
-    const receipt = await runPool(makeTasks(2), config);
-
-    expect(receipt.seats).toHaveLength(2);
-    expect(receipt.seats.every((s) => s.status === "blocked")).toBe(true);
-    expect(receipt.seats[0].blockedReason).toMatch(/Rule of 3/);
-    expect(receipt.summary.blocked).toBe(2);
-
-    await rm(dir, { recursive: true });
+    await expect(
+      runPool(makeConfig(), backend, board),
+    ).rejects.toThrow(/Rule of 3/);
   });
 
   it("processes tasks up to the cap", async () => {
-    const dir = join(tmpdir(), `h1-cap-${Date.now()}`);
-    const tasks = makeTasks(5);
+    const board = new ScriptedBoard(makeTasks(5));
     const backend = new ScriptedBackend(makeRunConfigs(5));
-    const config = await makeConfig(backend, dir, 3);
+    mockRunVerify.mockResolvedValue(verifyPass());
 
-    await runPool(tasks, config);
+    const receipt = await runPool(makeConfig({ cap: 3 }), backend, board);
 
-    // Should have created 3 agents (cap) from the 5 tasks
-    const creates = backend.callLog.filter((c) => c.method === "create");
-    expect(creates.length).toBeLessThanOrEqual(3);
+    // All 5 tasks processed (3 initially, then refills as seats free)
+    expect(receipt.summary.completed).toBe(5);
 
-    await rm(dir, { recursive: true });
+    // First batch of claims should be 3 (cap), before any complete calls
+    const callMethods = board.callLog.map((c) => c.method);
+    const firstCompleteIdx = callMethods.indexOf("complete");
+    const claimsBefore = callMethods
+      .slice(0, firstCompleteIdx)
+      .filter((m) => m === "claim").length;
+    expect(claimsBefore).toBe(3);
   });
 
   it("writes a valid receipt file", async () => {
-    const dir = join(tmpdir(), `h1-receipt-${Date.now()}`);
-    const tasks = makeTasks(4);
+    const board = new ScriptedBoard(makeTasks(4));
     const backend = new ScriptedBackend(makeRunConfigs(4));
-    const config = await makeConfig(backend, dir, 7);
+    mockRunVerify.mockResolvedValue(verifyPass());
 
-    await runPool(tasks, config);
+    const receipt = await runPool(makeConfig(), backend, board);
 
-    const content = await readFile(config.receiptPath, "utf-8");
-    const parsed = JSON.parse(content);
-    expect(parsed.harness).toBe("h1-queue-pool");
-    expect(parsed.poolId).toMatch(/^pool-/);
-    expect(parsed.summary).toBeDefined();
-
-    await rm(dir, { recursive: true });
+    expect(mockWriteReceipt).toHaveBeenCalledOnce();
+    const written = mockWriteReceipt.mock.calls[0][0];
+    expect(written.harness).toBe("h1-queue-pool");
+    expect(written.poolId).toBe("eval-pool");
+    expect(written.summary).toBeDefined();
+    expect(written.summary.completed).toBe(4);
+    expect(receipt).toEqual(written);
   });
 
   it("cancels runs that exceed spend caps", async () => {
-    const dir = join(tmpdir(), `h1-spend-${Date.now()}`);
-    const tasks = makeTasks(3);
+    const board = new ScriptedBoard(makeTasks(3));
     const backend = new ScriptedBackend(
       makeRunConfigs(3).map((c) => ({ ...c, tokens: 999_999 })),
     );
-    const config = await makeConfig(backend, dir, 7);
-    config.spend.maxTotalTokens = 100_000;
+    mockRunVerify.mockResolvedValue(verifyPass());
 
-    const receipt = await runPool(tasks, config);
+    const receipt = await runPool(
+      makeConfig({
+        spend: {
+          model: "test-model",
+          maxSends: 50,
+          runTimeoutMs: 600_000,
+          maxTotalTokens: 100_000,
+          wallMs: 1_200_000,
+        },
+      }),
+      backend,
+      board,
+    );
 
     const cancelled = receipt.seats.filter((s) => s.status === "cancelled");
     expect(cancelled.length).toBeGreaterThan(0);
     expect(cancelled[0].trippedLock).toBe("maxTotalTokens");
-
-    await rm(dir, { recursive: true });
   });
 });

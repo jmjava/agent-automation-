@@ -39,3 +39,4 @@ export {
   AgentTracer,
   type OtelConfig,
 } from "./otel.js";
+export { runPool, type PoolConfig } from "../harnesses/h1-queue-pool/run.js";
