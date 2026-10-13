@@ -65,3 +65,11 @@ export {
   type RoutedResult,
   type RouterReceipt,
 } from "../harnesses/h5-router-tiers/run.js";
+export {
+  Patrol,
+  type PatrolConfig,
+  type StallHandler,
+  type StallAction,
+  type PatrolledAgent,
+  type PatrolReport,
+} from "../harnesses/h7-patrol/run.js";
