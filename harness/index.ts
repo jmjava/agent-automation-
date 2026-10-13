@@ -48,3 +48,11 @@ export {
   type PipelineReceipt,
   type StageResult,
 } from "../harnesses/h3-pipeline-gates/run.js";
+export {
+  runTournament,
+  scorers,
+  type TournamentConfig,
+  type Scorer,
+  type ContestantResult,
+  type TournamentReceipt,
+} from "../harnesses/h4-best-of-n/run.js";
