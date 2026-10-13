@@ -56,3 +56,12 @@ export {
   type ContestantResult,
   type TournamentReceipt,
 } from "../harnesses/h4-best-of-n/run.js";
+export {
+  runRouter,
+  classifiers,
+  type RouterConfig,
+  type TierConfig,
+  type Classifier,
+  type RoutedResult,
+  type RouterReceipt,
+} from "../harnesses/h5-router-tiers/run.js";
