@@ -27,4 +27,15 @@ export {
   type ScriptedRunConfig,
 } from "./backends/scripted.js";
 export { CursorCloudBackend } from "./backends/cursor-cloud.js";
-export { CursorCliBackend } from "./backends/cursor-cli.js";
+export {
+  CursorCliBackend,
+  CursorCliRun,
+  type CliEvent,
+} from "./backends/cursor-cli.js";
+export {
+  initTracing,
+  shutdownTracing,
+  PoolTracer,
+  AgentTracer,
+  type OtelConfig,
+} from "./otel.js";

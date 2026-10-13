@@ -1,0 +1,16 @@
+{
+  "hooks": [
+    {
+      "event": "beforeShellExecution",
+      "script": "scripts/hooks/deny-dangerous.sh",
+      "matcher": {
+        "anyOf": [
+          { "contains": "push --force" },
+          { "contains": "push -f" },
+          { "contains": "rm -rf /" },
+          { "regex": "\\.github/workflows" }
+        ]
+      }
+    }
+  ]
+}

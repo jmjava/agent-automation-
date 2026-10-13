@@ -1,0 +1,14 @@
+---
+description: Pool worker contract — enforced on every agent in the pool
+alwaysApply: true
+---
+
+# Pool contract
+
+1. Never edit files under `.github/workflows/`
+2. Never `git push --force` or `git push -f`
+3. Never `rm -rf` outside the repo root
+4. Always run the verify commands before declaring done
+5. If a test fails twice with the same error, stop and report
+6. Do not self-chain or spawn follow-up agents
+7. Write a receipt file when done
