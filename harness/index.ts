@@ -40,3 +40,11 @@ export {
   type OtelConfig,
 } from "./otel.js";
 export { runPool, type PoolConfig } from "../harnesses/h1-queue-pool/run.js";
+export {
+  runPipeline,
+  defaultStages,
+  type PipelineConfig,
+  type PipelineStage,
+  type PipelineReceipt,
+  type StageResult,
+} from "../harnesses/h3-pipeline-gates/run.js";
