@@ -1,0 +1,12 @@
+{
+  "name": "pool-target",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "lint": "echo 'lint ok'"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.0"
+  }
+}

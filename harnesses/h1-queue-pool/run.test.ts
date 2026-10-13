@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   ScriptedBackend,
@@ -8,6 +11,8 @@ import type { TaskItem } from "../../harness/board.js";
 import type { VerifyResult } from "../../harness/gate.js";
 import type { SpendConfig } from "../../harness/spend.js";
 import { runPool, type PoolConfig } from "./run.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /* ─── Mocks ─── */
 
@@ -358,5 +363,20 @@ describe("runPool", () => {
     expect(receipt.started >= before).toBe(true);
     expect(receipt.finished <= after).toBe(true);
     expect(receipt.started <= receipt.finished).toBe(true);
+  });
+});
+
+describe("pool-target fixture", () => {
+  it("cases.json has >= 3 entries (Rule of 3 compatible)", () => {
+    const casesPath = resolve(__dirname, "../../fixtures/pool-target/cases.json");
+    const cases = JSON.parse(readFileSync(casesPath, "utf-8")) as Array<{
+      id: string;
+      text: string;
+    }>;
+    expect(cases.length).toBeGreaterThanOrEqual(3);
+    for (const c of cases) {
+      expect(c.id).toBeTruthy();
+      expect(c.text).toBeTruthy();
+    }
   });
 });

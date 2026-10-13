@@ -1,0 +1,7 @@
+[
+  {"id": "math-multiply", "text": "Implement the multiply function in src/math.ts. Run npm test to verify."},
+  {"id": "math-divide", "text": "Implement the divide function in src/math.ts with zero-check. Run npm test to verify."},
+  {"id": "math-factorial", "text": "Implement the factorial function in src/math.ts. Handle 0 and negative inputs. Run npm test to verify."},
+  {"id": "string-capitalize", "text": "Implement capitalize in src/string-utils.ts. Run npm test to verify."},
+  {"id": "string-truncate-slugify", "text": "Implement truncate and slugify in src/string-utils.ts. Run npm test to verify."}
+]

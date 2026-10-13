@@ -1,0 +1,9 @@
+---
+description: Pool target contract
+alwaysApply: true
+---
+# Pool target rules
+1. Each task = implement one function + make its tests pass
+2. Run `npm test` before declaring done
+3. Do not modify test files
+4. Do not add new dependencies
