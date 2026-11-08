@@ -6,7 +6,7 @@
  *
  * Flow:
  * 1. A blank task is refused before an agent launches. Otherwise call classifier(task) to get the tier name.
- * 2. Find the tier config. Duplicate names, a blank model, and an unknown tier are refused before an agent launches.
+ * 2. Find the tier config. A blank name, duplicate names, a blank model, and an unknown tier are refused before an agent launches.
  * 3. Run verify. If passes → success.
  * 4. If fails: escalate to the next more expensive tier (if one exists).
  * 5. If the most expensive tier also fails → mark as failed.
@@ -114,6 +114,9 @@ export async function runRouter(
 ): Promise<RouterReceipt> {
   const seenTierNames = new Set<string>();
   for (const tier of config.tiers) {
+    if (tier.name.trim() === "") {
+      throw new Error("Refusing a router tier whose name is blank.");
+    }
     if (seenTierNames.has(tier.name)) {
       throw new Error("Refusing a router whose tier names are not unique.");
     }

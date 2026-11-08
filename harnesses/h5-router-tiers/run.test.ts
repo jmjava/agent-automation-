@@ -308,6 +308,29 @@ describe("runRouter", () => {
     expect(mockRename).not.toHaveBeenCalled();
   });
 
+  it("refuses a router tier whose name is blank", async () => {
+    const backend = new ScriptedBackend(makeRunConfigs(1));
+    mockRunVerify.mockResolvedValue(verifyPass());
+
+    await expect(
+      runRouter(
+        makeConfig({
+          tiers: [{ name: "", model: "gpt-fast" }],
+          classifier: async () => "",
+          receiptPath: "/tmp/h5-tier-name.json",
+        }),
+        ["route this"],
+        backend,
+      ),
+    ).rejects.toThrow(/name/);
+
+    const calls = backend.callLog.filter((c) => c.method === "create");
+    expect(calls).toHaveLength(0);
+    expect(mockRunVerify).not.toHaveBeenCalled();
+    expect(mockWriteFile).not.toHaveBeenCalled();
+    expect(mockRename).not.toHaveBeenCalled();
+  });
+
   it("refuses an unknown tier before launching an agent", async () => {
     const backend = new ScriptedBackend(makeRunConfigs(1));
     mockRunVerify.mockResolvedValue(verifyPass());
