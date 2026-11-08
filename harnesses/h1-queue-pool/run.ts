@@ -2,7 +2,7 @@
  * H1 queue-pool coordinator.
  *
  * Implements the pool behavior:
- * 1. List open tasks from the board
+ * 1. List open tasks from the board. A blank project is refused before the board is read.
  * 2. Rule-of-3: refuse to fan out with fewer than 3 tasks
  * 3. Fill seats up to `cap`, claiming each task on the board
  * 4. Wait for each agent run to complete
@@ -63,6 +63,10 @@ export async function runPool(
 
   if (!Array.isArray(config.verify) || config.verify.length < 1) {
     throw new Error("Refusing a pool that has no verification.");
+  }
+
+  if (config.project.trim() === "") {
+    throw new Error("Refusing a pool whose project is blank.");
   }
 
   const poolStart = Date.now();
