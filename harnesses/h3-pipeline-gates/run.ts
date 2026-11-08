@@ -7,7 +7,7 @@
  * Flow:
  * 1. For each stage in order:
  *    a. Build prompt from stage.prompt with {task} replaced by config.task
- *    b. Create an agent run via the backend. A blank stage model is refused before that create.
+ *    b. Create an agent run via the backend. A blank stage model or a blank prompt is refused before that create.
  *    c. Wait for run to complete
  *    d. Run runVerify(stage.verify) — if fails, mark stage failed and STOP
  *    e. If stage.filesAllowlist, run filesAllowlist() — if fails, STOP
@@ -118,6 +118,10 @@ export async function runPipeline(
 
   if (config.stages.some((stage) => (stage.model ?? config.spend.model).trim() === "")) {
     throw new Error("Refusing a pipeline stage whose model is blank.");
+  }
+
+  if (config.stages.some((stage) => stage.prompt.trim() === "")) {
+    throw new Error("Refusing a pipeline stage whose prompt is blank.");
   }
 
   const pipelineStart = Date.now();

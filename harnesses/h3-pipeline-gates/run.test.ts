@@ -138,6 +138,33 @@ describe("runPipeline", () => {
     expect(mockRename).not.toHaveBeenCalled();
   });
 
+  it("refuses a pipeline stage whose prompt is blank", async () => {
+    const backend = new ScriptedBackend(makeRunConfigs(1));
+    mockRunVerify.mockResolvedValue(verifyPass());
+
+    await expect(
+      runPipeline(
+        makeConfig({
+          stages: [
+            {
+              name: "plan",
+              prompt: "",
+              verify: ["echo ok"],
+            },
+          ],
+          receiptPath: "/tmp/h3-blank-prompt.json",
+        }),
+        backend,
+      ),
+    ).rejects.toThrow(/prompt/);
+
+    const calls = backend.callLog.filter((c) => c.method === "create");
+    expect(calls).toHaveLength(0);
+    expect(mockRunVerify).not.toHaveBeenCalled();
+    expect(mockWriteFile).not.toHaveBeenCalled();
+    expect(mockRename).not.toHaveBeenCalled();
+  });
+
   it("pipeline completes all 4 stages successfully", async () => {
     const backend = new ScriptedBackend(makeRunConfigs(4));
     mockRunVerify.mockResolvedValue(verifyPass());
