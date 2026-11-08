@@ -6,7 +6,7 @@
  * 2. Rule-of-3: refuse to fan out with fewer than 3 tasks
  * 3. Fill seats up to `cap`, claiming each task on the board
  * 4. Wait for each agent run to complete
- * 5. Verify each completed run with shell commands
+ * 5. Verify each completed run with shell commands. A pool with no commands is refused before the board is read.
  * 6. Complete or block each task based on verify + allowlist results
  * 7. Repeat-stop: if the same error hash appears twice, block immediately
  * 8. Retry once on first failure
@@ -59,6 +59,10 @@ export async function runPool(
 ): Promise<PoolReceipt> {
   if (!Number.isInteger(config.cap) || config.cap < 1) {
     throw new Error("Refusing a pool that cannot seat a task.");
+  }
+
+  if (!Array.isArray(config.verify) || config.verify.length < 1) {
+    throw new Error("Refusing a pool that has no verification.");
   }
 
   const poolStart = Date.now();
