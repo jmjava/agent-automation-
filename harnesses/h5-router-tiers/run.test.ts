@@ -263,6 +263,28 @@ describe("runRouter", () => {
     expect(mockRename).not.toHaveBeenCalled();
   });
 
+  it("refuses a router task that is blank", async () => {
+    const backend = new ScriptedBackend(makeRunConfigs(1));
+    mockRunVerify.mockResolvedValue(verifyPass());
+
+    await expect(
+      runRouter(
+        makeConfig({
+          classifier: async () => "fast",
+          receiptPath: "/tmp/h5-blank.json",
+        }),
+        [""],
+        backend,
+      ),
+    ).rejects.toThrow(/blank/);
+
+    const calls = backend.callLog.filter((c) => c.method === "create");
+    expect(calls).toHaveLength(0);
+    expect(mockRunVerify).not.toHaveBeenCalled();
+    expect(mockWriteFile).not.toHaveBeenCalled();
+    expect(mockRename).not.toHaveBeenCalled();
+  });
+
   it("refuses an unknown tier before launching an agent", async () => {
     const backend = new ScriptedBackend(makeRunConfigs(1));
     mockRunVerify.mockResolvedValue(verifyPass());

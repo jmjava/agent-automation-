@@ -5,7 +5,7 @@
  * and escalates to more expensive tiers on verification failure.
  *
  * Flow:
- * 1. For each task: call classifier(task) to get the tier name
+ * 1. A blank task is refused before an agent launches. Otherwise call classifier(task) to get the tier name.
  * 2. Find the tier config. Duplicate tier names and an unknown tier are refused before an agent launches.
  * 3. Run verify. If passes → success.
  * 4. If fails: escalate to the next more expensive tier (if one exists).
@@ -118,6 +118,10 @@ export async function runRouter(
       throw new Error("Refusing a router whose tier names are not unique.");
     }
     seenTierNames.add(tier.name);
+  }
+
+  if (tasks.some((task) => task.trim() === "")) {
+    throw new Error("Refusing a router task that is blank.");
   }
 
   const routerStart = Date.now();
