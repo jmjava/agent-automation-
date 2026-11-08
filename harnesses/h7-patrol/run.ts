@@ -9,7 +9,7 @@
  * 3. Patrol polls on interval, checking now - lastEventAt > stallThreshold
  * 4. If stalled: call onStall(agentId, duration, nudgeCount)
  * 5. Handler returns: "nudge" (send a follow-up message), "cancel" (kill it), "ignore"
- * 6. After maxNudges, auto-cancel
+ * 6. After maxNudges, auto-cancel. A negative nudge budget is refused before that cancel.
  * 7. patrol.stop() returns the report
  */
 
@@ -112,6 +112,10 @@ export class Patrol {
       throw new Error(
         "Refusing a patrol whose stall threshold treats a fresh agent as stalled.",
       );
+    }
+
+    if (this.config.maxNudges < 0) {
+      throw new Error("Refusing a patrol whose nudge budget is negative.");
     }
 
     const now = Date.now();
