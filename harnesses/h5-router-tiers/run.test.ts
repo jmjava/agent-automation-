@@ -285,6 +285,29 @@ describe("runRouter", () => {
     expect(mockRename).not.toHaveBeenCalled();
   });
 
+  it("refuses a router tier whose model is blank", async () => {
+    const backend = new ScriptedBackend(makeRunConfigs(1));
+    mockRunVerify.mockResolvedValue(verifyPass());
+
+    await expect(
+      runRouter(
+        makeConfig({
+          tiers: [{ name: "only", model: "" }],
+          classifier: async () => "only",
+          receiptPath: "/tmp/h5-model.json",
+        }),
+        ["route this"],
+        backend,
+      ),
+    ).rejects.toThrow(/model/);
+
+    const calls = backend.callLog.filter((c) => c.method === "create");
+    expect(calls).toHaveLength(0);
+    expect(mockRunVerify).not.toHaveBeenCalled();
+    expect(mockWriteFile).not.toHaveBeenCalled();
+    expect(mockRename).not.toHaveBeenCalled();
+  });
+
   it("refuses an unknown tier before launching an agent", async () => {
     const backend = new ScriptedBackend(makeRunConfigs(1));
     mockRunVerify.mockResolvedValue(verifyPass());
