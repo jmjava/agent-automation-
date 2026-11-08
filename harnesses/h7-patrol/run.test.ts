@@ -94,6 +94,27 @@ describe("Patrol", () => {
     expect(onStall).toHaveBeenCalledTimes(1);
   });
 
+  it("refuses to start a patrol that is already running", async () => {
+    const onStall = vi.fn().mockResolvedValue("nudge" as StallAction);
+    const patrol = new Patrol(
+      makeConfig({
+        pollIntervalMs: 1000,
+        stallThresholdMs: 5000,
+        maxNudges: 2,
+        onStall,
+      }),
+    );
+
+    patrol.watch("agent-1");
+    await patrol.start();
+
+    await expect(patrol.start()).rejects.toThrow(/running/);
+
+    vi.advanceTimersByTime(1000);
+    expect(onStall).not.toHaveBeenCalled();
+    patrol.stop();
+  });
+
   it("detects stalled agent after threshold", async () => {
     const onStall = vi.fn().mockResolvedValue("nudge" as StallAction);
     const patrol = new Patrol(makeConfig({ stallThresholdMs: 5000, onStall }));

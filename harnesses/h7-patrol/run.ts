@@ -90,8 +90,12 @@ export class Patrol {
     }
   }
 
-  /** Start the patrol loop */
+  /** Start the patrol loop. A second start is refused before another timer is armed. */
   async start(): Promise<void> {
+    if (this.running) {
+      throw new Error("Refusing to start a patrol that is already running.");
+    }
+
     this.running = true;
     this.startedAt = Date.now();
 
