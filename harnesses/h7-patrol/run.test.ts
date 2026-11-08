@@ -30,6 +30,18 @@ afterEach(() => {
 });
 
 describe("Patrol", () => {
+  it("refuses a patrol whose stall threshold is negative", async () => {
+    const onStall = vi.fn().mockResolvedValue("cancel" as StallAction);
+    const patrol = new Patrol(makeConfig({ stallThresholdMs: -1, onStall }));
+
+    patrol.watch("agent-1");
+
+    await expect(patrol.tick()).rejects.toThrow(/stall/);
+
+    expect(onStall).not.toHaveBeenCalled();
+    expect(patrol.stop().agents[0]?.status).toBe("active");
+  });
+
   it("detects stalled agent after threshold", async () => {
     const onStall = vi.fn().mockResolvedValue("nudge" as StallAction);
     const patrol = new Patrol(makeConfig({ stallThresholdMs: 5000, onStall }));

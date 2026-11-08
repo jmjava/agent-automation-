@@ -108,6 +108,12 @@ export class Patrol {
 
   /** Check all agents once (for testing) */
   async tick(): Promise<PatrolledAgent[]> {
+    if (!(this.config.stallThresholdMs >= 0)) {
+      throw new Error(
+        "Refusing a patrol whose stall threshold treats a fresh agent as stalled.",
+      );
+    }
+
     const now = Date.now();
     const stalled: PatrolledAgent[] = [];
 
