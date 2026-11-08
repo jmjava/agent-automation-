@@ -57,6 +57,10 @@ export async function runPool(
   backend: AgentBackend,
   board: Board,
 ): Promise<PoolReceipt> {
+  if (!Number.isInteger(config.cap) || config.cap < 1) {
+    throw new Error("Refusing a pool that cannot seat a task.");
+  }
+
   const poolStart = Date.now();
   const seats: SeatResult[] = [];
   const errorHashes: string[] = [];
