@@ -127,6 +127,25 @@ describe("runPool", () => {
     expect(mockRunVerify).not.toHaveBeenCalled();
   });
 
+  it("refuses a pool whose project is blank", async () => {
+    const tasks = makeTasks(3).map((task) => ({ ...task, project: "" }));
+    const board = new ScriptedBoard(tasks);
+    const backend = new ScriptedBackend(makeRunConfigs(3));
+    mockRunVerify.mockResolvedValue(verifyPass());
+
+    await expect(
+      runPool(makeConfig({ project: "" }), backend, board),
+    ).rejects.toThrow(/project/);
+
+    expect(backend.callLog.filter((c) => c.method === "create")).toHaveLength(0);
+    expect(board.callLog.filter((c) => c.method === "listOpen")).toHaveLength(0);
+    expect(board.callLog.filter((c) => c.method === "claim")).toHaveLength(0);
+    expect(board.callLog.filter((c) => c.method === "complete")).toHaveLength(0);
+    expect(board.callLog.filter((c) => c.method === "appendDaily")).toHaveLength(0);
+    expect(mockWriteReceipt).not.toHaveBeenCalled();
+    expect(mockRunVerify).not.toHaveBeenCalled();
+  });
+
   it("completes all tasks with passing verify", async () => {
     const tasks = makeTasks(4);
     const board = new ScriptedBoard(tasks);
