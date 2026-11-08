@@ -237,6 +237,32 @@ describe("runRouter", () => {
     expect(mockRename.mock.calls[0][1]).toBe("/tmp/h5-receipt.json");
   });
 
+  it("refuses a router whose tier names are not unique", async () => {
+    const backend = new ScriptedBackend(makeRunConfigs(2));
+    mockRunVerify.mockResolvedValue(verifyFail());
+
+    await expect(
+      runRouter(
+        makeConfig({
+          tiers: [
+            { name: "fast", model: "gpt-fast" },
+            { name: "fast", model: "gpt-expensive" },
+          ],
+          classifier: async () => "fast",
+          receiptPath: "/tmp/h5-duplicate.json",
+        }),
+        ["route this"],
+        backend,
+      ),
+    ).rejects.toThrow(/unique/);
+
+    const calls = backend.callLog.filter((c) => c.method === "create");
+    expect(calls).toHaveLength(0);
+    expect(mockRunVerify).not.toHaveBeenCalled();
+    expect(mockWriteFile).not.toHaveBeenCalled();
+    expect(mockRename).not.toHaveBeenCalled();
+  });
+
   it("refuses an unknown tier before launching an agent", async () => {
     const backend = new ScriptedBackend(makeRunConfigs(1));
     mockRunVerify.mockResolvedValue(verifyPass());
