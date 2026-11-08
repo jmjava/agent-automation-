@@ -237,6 +237,23 @@ describe("runRouter", () => {
     expect(mockRename.mock.calls[0][1]).toBe("/tmp/h5-receipt.json");
   });
 
+  it("refuses an unknown tier before launching an agent", async () => {
+    const backend = new ScriptedBackend(makeRunConfigs(1));
+    mockRunVerify.mockResolvedValue(verifyPass());
+
+    await expect(
+      runRouter(
+        makeConfig({ classifier: async () => "not-a-tier" }),
+        ["route this"],
+        backend,
+      ),
+    ).rejects.toThrow(/unknown tier/);
+
+    const calls = backend.callLog.filter((c) => c.method === "create");
+    expect(calls).toHaveLength(0);
+    expect(mockRunVerify).not.toHaveBeenCalled();
+  });
+
   it("router handles single tier (no escalation possible)", async () => {
     const singleTier: TierConfig[] = [{ name: "only", model: "gpt-only" }];
     const backend = new ScriptedBackend(makeRunConfigs(1));

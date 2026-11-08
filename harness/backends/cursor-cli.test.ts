@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { EventEmitter, Readable } from "node:stream";
 import { CursorCliRun, CursorCliBackend, type CliEvent } from "./cursor-cli.js";
 
@@ -203,12 +203,6 @@ describe("CursorCliRun", () => {
 
 describe("CursorCliBackend", () => {
   let spawnMock: ReturnType<typeof vi.fn>;
-  let originalSpawn: typeof import("node:child_process").spawn;
-
-  beforeEach(async () => {
-    const cp = await import("node:child_process");
-    originalSpawn = cp.spawn;
-  });
 
   it("constructs with default cli path", () => {
     const backend = new CursorCliBackend();
@@ -224,14 +218,12 @@ describe("CursorCliBackend", () => {
     const proc = createFakeProcess();
     spawnMock = vi.fn().mockReturnValue(proc);
 
-    const { spawn: _originalSpawn } = await import("node:child_process");
-
     const backend = new CursorCliBackend("cursor");
-    const origCreate = backend.create.bind(backend);
 
     backend.create = async (opts) => {
       const args = ["agent", "-p", opts.prompt, "--output-format", "stream-json"];
       spawnMock("cursor", args, { stdio: ["ignore", "pipe", "pipe"], env: expect.any(Object) });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return new CursorCliRun(proc as any);
     };
 

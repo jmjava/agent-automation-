@@ -3,7 +3,6 @@ import {
   initTracing,
   shutdownTracing,
   PoolTracer,
-  AgentTracer,
 } from "./otel.js";
 import type { InMemorySpanExporter } from "@opentelemetry/sdk-trace-base";
 

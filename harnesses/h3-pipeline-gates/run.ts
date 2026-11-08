@@ -144,7 +144,7 @@ export async function runPipeline(
       },
     });
 
-    const agentId = extractAgentId(run as Record<string, unknown>);
+    const agentId = extractAgentId(run as unknown as Record<string, unknown>);
     totalTokens += run.usage.totalTokens;
 
     // Gate: run verification commands

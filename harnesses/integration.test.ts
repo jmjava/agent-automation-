@@ -31,7 +31,7 @@ import {
   type RouterConfig,
   type TierConfig,
 } from "./h5-router-tiers/run.js";
-import { Patrol, type PatrolConfig, type StallAction } from "./h7-patrol/run.js";
+import { Patrol, type StallAction } from "./h7-patrol/run.js";
 
 /* ─── Mocks ─── */
 

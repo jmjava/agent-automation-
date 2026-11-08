@@ -6,7 +6,7 @@
  *
  * Flow:
  * 1. For each task: call classifier(task) to get the tier name
- * 2. Find the tier config. Launch agent with that tier's model.
+ * 2. Find the tier config. An unknown tier is refused before an agent launches.
  * 3. Run verify. If passes → success.
  * 4. If fails: escalate to the next more expensive tier (if one exists).
  * 5. If the most expensive tier also fails → mark as failed.
@@ -124,10 +124,10 @@ export async function runRouter(
   for (const task of tasks) {
     const taskStart = Date.now();
     const classifiedTier = await config.classifier(task);
-    let tierIndex = findTierIndex(config.tiers, classifiedTier);
+    const tierIndex = findTierIndex(config.tiers, classifiedTier);
 
     if (tierIndex === -1) {
-      tierIndex = 0;
+      throw new Error("Refusing to route to an unknown tier.");
     }
 
     let currentTierIndex = tierIndex;
