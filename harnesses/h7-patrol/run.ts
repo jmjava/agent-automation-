@@ -90,10 +90,14 @@ export class Patrol {
     }
   }
 
-  /** Start the patrol loop. A second start is refused before another timer is armed. */
+  /** Start the patrol loop. A second start and a non-positive poll interval are refused before a timer is armed. */
   async start(): Promise<void> {
     if (this.running) {
       throw new Error("Refusing to start a patrol that is already running.");
+    }
+
+    if (!(this.config.pollIntervalMs > 0)) {
+      throw new Error("Refusing a patrol whose poll interval is not positive.");
     }
 
     this.running = true;
