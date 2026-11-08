@@ -8,7 +8,7 @@
  * 2. Agents send patrol.heartbeat(agentId) when they produce events
  * 3. Patrol polls on interval, checking now - lastEventAt > stallThreshold
  * 4. If stalled: call onStall(agentId, duration, nudgeCount)
- * 5. Handler returns: "nudge" (send a follow-up message), "cancel" (kill it), "ignore"
+ * 5. Handler returns: "nudge", "cancel", or "ignore". Any other action is refused before the agent status changes.
  * 6. After maxNudges, auto-cancel. A negative nudge budget is refused before that cancel.
  * 7. patrol.stop() returns the report
  */
@@ -138,6 +138,12 @@ export class Patrol {
         stallDuration,
         agent.nudgeCount,
       );
+
+      if (action !== "nudge" && action !== "cancel" && action !== "ignore") {
+        throw new Error(
+          "Refusing a patrol stall action that is not nudge, cancel, or ignore.",
+        );
+      }
 
       switch (action) {
         case "nudge":
