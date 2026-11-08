@@ -93,6 +93,10 @@ export async function runTournament(
   config: TournamentConfig,
   backend: AgentBackend,
 ): Promise<TournamentReceipt> {
+  if (!Number.isInteger(config.n) || config.n < 1) {
+    throw new Error("Refusing a tournament that does not launch a contestant.");
+  }
+
   const tournamentStart = Date.now();
   const model = config.model ?? config.spend.model;
 
