@@ -58,11 +58,14 @@ export class Patrol {
 
   constructor(private config: PatrolConfig) {}
 
-  /** Register an agent to watch. An agent that is already watched is refused before its stall clock is reset. */
+  /** Register an agent to watch. An agent that is already watched, or one that was cancelled, is refused before its record is replaced. */
   watch(agentId: string): void {
     const existing = this.agents.get(agentId);
     if (existing?.status === "active") {
       throw new Error("Refusing to watch an agent that is already watched.");
+    }
+    if (existing?.status === "cancelled") {
+      throw new Error("Refusing to watch an agent that was cancelled.");
     }
 
     this.agents.set(agentId, {
