@@ -3,7 +3,7 @@ import {
   ScriptedBackend,
   type ScriptedRunConfig,
 } from "../../harness/backends/scripted.js";
-import type { VerifyResult, AllowlistResult } from "../../harness/gate.js";
+import type { VerifyResult } from "../../harness/gate.js";
 import type { SpendConfig } from "../../harness/spend.js";
 import {
   runPipeline,
