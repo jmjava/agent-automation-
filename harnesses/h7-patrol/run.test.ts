@@ -115,6 +115,25 @@ describe("Patrol", () => {
     patrol.stop();
   });
 
+  it("refuses a patrol whose poll interval is not positive", async () => {
+    const onStall = vi.fn().mockResolvedValue("nudge" as StallAction);
+    const patrol = new Patrol(
+      makeConfig({
+        pollIntervalMs: 0,
+        stallThresholdMs: 1000,
+        maxNudges: 2,
+        onStall,
+      }),
+    );
+
+    patrol.watch("agent-1");
+
+    await expect(patrol.start()).rejects.toThrow(/poll/);
+
+    vi.advanceTimersByTime(5000);
+    expect(onStall).not.toHaveBeenCalled();
+  });
+
   it("detects stalled agent after threshold", async () => {
     const onStall = vi.fn().mockResolvedValue("nudge" as StallAction);
     const patrol = new Patrol(makeConfig({ stallThresholdMs: 5000, onStall }));
