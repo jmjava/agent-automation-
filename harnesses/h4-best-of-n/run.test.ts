@@ -82,6 +82,21 @@ beforeEach(() => {
 });
 
 describe("runTournament", () => {
+  it("refuses a tournament that launches no contestant", async () => {
+    const backend = new ScriptedBackend(makeRunConfigs(1));
+    mockRunVerify.mockResolvedValue(verifyPass());
+
+    await expect(
+      runTournament(makeConfig({ n: 0 }), backend),
+    ).rejects.toThrow(/contestant/);
+
+    const calls = backend.callLog.filter((c) => c.method === "create");
+    expect(calls).toHaveLength(0);
+    expect(mockRunVerify).not.toHaveBeenCalled();
+    expect(mockWriteFile).not.toHaveBeenCalled();
+    expect(mockRename).not.toHaveBeenCalled();
+  });
+
   it("tournament picks highest-scoring contestant", async () => {
     const backend = new ScriptedBackend(makeRunConfigs(3));
     mockRunVerify.mockResolvedValue(verifyPass());
