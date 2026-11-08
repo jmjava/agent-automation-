@@ -112,6 +112,10 @@ export async function runPipeline(
   config: PipelineConfig,
   backend: AgentBackend,
 ): Promise<PipelineReceipt> {
+  if (config.stages.length < 1) {
+    throw new Error("Refusing a pipeline that has no stages.");
+  }
+
   const pipelineStart = Date.now();
   const results: StageResult[] = [];
   let totalTokens = 0;

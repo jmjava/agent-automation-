@@ -92,6 +92,24 @@ beforeEach(() => {
 });
 
 describe("runPipeline", () => {
+  it("refuses a pipeline that has no stages", async () => {
+    const backend = new ScriptedBackend(makeRunConfigs(1));
+    mockRunVerify.mockResolvedValue(verifyPass());
+
+    await expect(
+      runPipeline(
+        makeConfig({ stages: [], receiptPath: "/tmp/h3-empty.json" }),
+        backend,
+      ),
+    ).rejects.toThrow(/stage/);
+
+    const calls = backend.callLog.filter((c) => c.method === "create");
+    expect(calls).toHaveLength(0);
+    expect(mockRunVerify).not.toHaveBeenCalled();
+    expect(mockWriteFile).not.toHaveBeenCalled();
+    expect(mockRename).not.toHaveBeenCalled();
+  });
+
   it("pipeline completes all 4 stages successfully", async () => {
     const backend = new ScriptedBackend(makeRunConfigs(4));
     mockRunVerify.mockResolvedValue(verifyPass());
