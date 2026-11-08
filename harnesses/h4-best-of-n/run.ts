@@ -8,7 +8,7 @@
  * 1. Launch `n` agents in parallel, all with the same prompt
  * 2. Wait for all to complete
  * 3. For each: run runVerify(verify) — failed verify = score 0
- * 4. For each passing: call scorer(run) to get a 0-100 score
+ * 4. For each passing: call scorer(run). A score outside 0-100 is refused before a winner is named.
  * 5. Highest score wins. Ties broken by lowest token count.
  * 6. Mark winner as "winner", other passing as "passed", failed as "failed"
  * 7. Write receipt if path provided
@@ -132,6 +132,9 @@ export async function runTournament(
     let score = 0;
     if (verifyPassed) {
       score = await config.scorer(run);
+      if (!Number.isFinite(score) || score < 0 || score > 100) {
+        throw new Error("Refusing a tournament score that is outside 0 to 100.");
+      }
     }
 
     contestants.push({

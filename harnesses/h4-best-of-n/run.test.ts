@@ -97,6 +97,25 @@ describe("runTournament", () => {
     expect(mockRename).not.toHaveBeenCalled();
   });
 
+  it("refuses a tournament score outside 0 to 100", async () => {
+    const backend = new ScriptedBackend(makeRunConfigs(1));
+    mockRunVerify.mockResolvedValue(verifyPass());
+
+    await expect(
+      runTournament(
+        makeConfig({
+          n: 1,
+          scorer: async () => 1000,
+          receiptPath: "/tmp/h4-score.json",
+        }),
+        backend,
+      ),
+    ).rejects.toThrow(/score/);
+
+    expect(mockWriteFile).not.toHaveBeenCalled();
+    expect(mockRename).not.toHaveBeenCalled();
+  });
+
   it("tournament picks highest-scoring contestant", async () => {
     const backend = new ScriptedBackend(makeRunConfigs(3));
     mockRunVerify.mockResolvedValue(verifyPass());
