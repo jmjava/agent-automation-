@@ -331,6 +331,28 @@ describe("runRouter", () => {
     expect(mockRename).not.toHaveBeenCalled();
   });
 
+  it("refuses a router run that exceeds its tier token cap", async () => {
+    const backend = new ScriptedBackend(makeRunConfigs(1));
+    mockRunVerify.mockResolvedValue(verifyPass());
+
+    await expect(
+      runRouter(
+        makeConfig({
+          tiers: [{ name: "fast", model: "gpt-fast", maxTokens: 100 }],
+          classifier: async () => "fast",
+          spend: makeSpend(),
+          receiptPath: "/tmp/h5-token-cap.json",
+        }),
+        ["route this"],
+        backend,
+      ),
+    ).rejects.toThrow(/cap/);
+
+    expect(mockRunVerify).not.toHaveBeenCalled();
+    expect(mockWriteFile).not.toHaveBeenCalled();
+    expect(mockRename).not.toHaveBeenCalled();
+  });
+
   it("refuses an unknown tier before launching an agent", async () => {
     const backend = new ScriptedBackend(makeRunConfigs(1));
     mockRunVerify.mockResolvedValue(verifyPass());

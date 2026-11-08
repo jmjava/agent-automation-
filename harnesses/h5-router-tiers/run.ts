@@ -7,7 +7,7 @@
  * Flow:
  * 1. A blank task is refused before an agent launches. Otherwise call classifier(task) to get the tier name.
  * 2. Find the tier config. A blank name, duplicate names, a blank model, and an unknown tier are refused before an agent launches.
- * 3. Run verify. If passes → success.
+ * 3. A run over the tier token cap is refused before verification. Otherwise run verify. If it passes → success.
  * 4. If fails: escalate to the next more expensive tier (if one exists).
  * 5. If the most expensive tier also fails → mark as failed.
  * 6. Record tier breakdown stats.
@@ -173,6 +173,9 @@ export async function runRouter(
 
       const agentId = extractAgentId(run as unknown as Record<string, unknown>);
       const tokens = run.usage?.totalTokens ?? 0;
+      if (tier.maxTokens !== undefined && tokens > tier.maxTokens) {
+        throw new Error("Refusing a router run that exceeds its tier token cap.");
+      }
       totalTaskTokens += tokens;
 
       breakdown[tier.name].count++;
